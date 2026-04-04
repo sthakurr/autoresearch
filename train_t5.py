@@ -243,7 +243,7 @@ D_MODEL = 512           # hidden dimension
 D_FF = 2048             # feed-forward intermediate dimension
 N_HEAD = 8              # number of attention heads
 D_KV = 64              # per-head key/value dimension (inner_dim = n_head * d_kv = 512)
-N_ENCODER_LAYERS = 12   # encoder depth
+N_ENCODER_LAYERS = 16   # encoder depth
 N_DECODER_LAYERS = 0    # decoder depth (unused, encoder-only)
 DROPOUT = 0.1           # dropout rate
 
