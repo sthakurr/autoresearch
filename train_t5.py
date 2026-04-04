@@ -280,22 +280,22 @@ class T5ForRegression(nn.Module):
 # Hyperparameters (edit these directly, no CLI flags needed)
 # ---------------------------------------------------------------------------
 
-# Model architecture (T5Chem base: 4 layers, 256 dim, 8 heads, 64 d_kv)
-D_MODEL = 256           # hidden dimension
+# Model architecture
+D_MODEL = 512           # hidden dimension
 D_FF = 2048             # feed-forward intermediate dimension
 N_HEAD = 8              # number of attention heads
 D_KV = 64              # per-head key/value dimension (inner_dim = n_head * d_kv = 512)
-N_ENCODER_LAYERS = 4    # encoder depth
-N_DECODER_LAYERS = 4    # decoder depth
+N_ENCODER_LAYERS = 6    # encoder depth
+N_DECODER_LAYERS = 6    # decoder depth
 DROPOUT = 0.1           # dropout rate
 
-# Optimization (T5Chem defaults: AdamW, lr=5e-4, no weight decay)
+# Optimization
 DEVICE_BATCH_SIZE = 32   # per-device batch size
-LEARNING_RATE = 5e-4     # initial learning rate (AdamW)
-WEIGHT_DECAY = 0.0       # weight decay
+LEARNING_RATE = 3e-4     # initial learning rate (AdamW)
+WEIGHT_DECAY = 0.01      # weight decay
 ADAM_BETAS = (0.9, 0.999) # Adam betas
 MAX_GRAD_NORM = 1.0      # gradient clipping max norm
-WARMUP_RATIO = 0.0       # fraction of time budget for LR warmup
+WARMUP_RATIO = 0.06      # fraction of time budget for LR warmup
 WARMDOWN_RATIO = 0.3     # fraction of time budget for LR warmdown
 FINAL_LR_FRAC = 0.0      # final LR as fraction of initial
 
