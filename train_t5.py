@@ -154,7 +154,7 @@ class T5DecoderBlock(nn.Module):
 
 
 class T5ForRegression(nn.Module):
-    """T5Chem encoder-decoder with 2-output regression head for yield prediction.
+    """Encoder-only with masked mean pooling + regression head for yield prediction.
 
     Regression uses soft-label KL divergence: yield y in [0,100] is mapped to
     target distribution [(100-y)/100, y/100], and the model outputs 2 logits
@@ -163,65 +163,40 @@ class T5ForRegression(nn.Module):
     def __init__(self, config):
         super().__init__()
         self.config = config
-        # Shared token embedding (T5 ties encoder/decoder embeddings)
         self.shared = nn.Embedding(config.vocab_size, config.d_model)
-        # Encoder
+        # Encoder only
         self.encoder = nn.ModuleList([T5EncoderBlock(config) for _ in range(config.n_encoder_layers)])
         self.enc_pos_bias = T5RelativePositionBias(
             config.n_head, is_decoder=False,
             num_buckets=config.relative_attention_num_buckets,
             max_distance=config.relative_attention_max_distance)
-        # Decoder
-        self.decoder = nn.ModuleList([T5DecoderBlock(config) for _ in range(config.n_decoder_layers)])
-        self.dec_self_pos_bias = T5RelativePositionBias(
-            config.n_head, is_decoder=True,
-            num_buckets=config.relative_attention_num_buckets,
-            max_distance=config.relative_attention_max_distance)
-        self.dec_cross_pos_bias = T5RelativePositionBias(
-            config.n_head, is_decoder=False,
-            num_buckets=config.relative_attention_num_buckets,
-            max_distance=config.relative_attention_max_distance)
-        # Regression head: 2 outputs for soft-label KL divergence (T5Chem)
+        # Regression head: 2 outputs for soft-label KL divergence
         self.regression_head = nn.Linear(config.d_model, 2, bias=False)
         self.dropout = nn.Dropout(config.dropout)
-        self.pad_token_id = 0  # set from tokenizer before use
+        self.pad_token_id = 0
 
     @torch.no_grad()
     def init_weights(self):
         d = self.config.d_model
         inner = self.config.n_head * self.config.d_kv
         d_ff = self.config.d_ff
-        # Shared embedding
         nn.init.normal_(self.shared.weight, std=d ** -0.5)
-        # Encoder blocks
         for block in self.encoder:
             for linear in [block.self_attn.q, block.self_attn.k, block.self_attn.v]:
                 nn.init.normal_(linear.weight, std=d ** -0.5)
             nn.init.normal_(block.self_attn.o.weight, std=inner ** -0.5)
             nn.init.normal_(block.ffn.wi.weight, std=d ** -0.5)
             nn.init.normal_(block.ffn.wo.weight, std=d_ff ** -0.5)
-        # Decoder blocks
-        for block in self.decoder:
-            for attn in [block.self_attn, block.cross_attn]:
-                for linear in [attn.q, attn.k, attn.v]:
-                    nn.init.normal_(linear.weight, std=d ** -0.5)
-                nn.init.normal_(attn.o.weight, std=inner ** -0.5)
-            nn.init.normal_(block.ffn.wi.weight, std=d ** -0.5)
-            nn.init.normal_(block.ffn.wo.weight, std=d_ff ** -0.5)
-        # Regression head + position biases
         nn.init.normal_(self.regression_head.weight, std=d ** -0.5)
-        for bias_mod in [self.enc_pos_bias, self.dec_self_pos_bias, self.dec_cross_pos_bias]:
-            nn.init.normal_(bias_mod.relative_attention_bias.weight, std=d ** -0.5)
+        nn.init.normal_(self.enc_pos_bias.relative_attention_bias.weight, std=d ** -0.5)
 
     def estimate_flops(self):
-        """Estimated FLOPs per sample (forward + backward)."""
         return 6 * sum(p.numel() for p in self.parameters())
 
     def num_params(self):
         return sum(p.numel() for p in self.parameters())
 
     def setup_optimizer(self, lr=5e-4, weight_decay=0.0, betas=(0.9, 0.999)):
-        """Standard AdamW optimizer (matching T5Chem training setup)."""
         decay = [p for n, p in self.named_parameters() if p.ndim >= 2]
         no_decay = [p for n, p in self.named_parameters() if p.ndim < 2]
         return torch.optim.AdamW([
@@ -230,14 +205,7 @@ class T5ForRegression(nn.Module):
         ], lr=lr, betas=betas, eps=1e-8)
 
     def forward(self, input_ids, attention_mask, decoder_input_ids, labels=None):
-        """
-        input_ids:         (B, T_enc) encoder input (Yield: prefix + SMILES chars)
-        attention_mask:    (B, T_enc) 1=real token, 0=padding
-        decoder_input_ids: (B, T_dec) decoder input (pad token, length 1)
-        labels:            (B,) yield values 0-100 (optional)
-        """
         B, T_enc = input_ids.size()
-        T_dec = decoder_input_ids.size(1)
 
         # --- Encoder ---
         x = self.dropout(self.shared(input_ids))
@@ -247,24 +215,14 @@ class T5ForRegression(nn.Module):
             x = block(x, mask=enc_mask, position_bias=enc_pos)
         enc_out = norm(x)
 
-        # --- Decoder ---
-        y = self.dropout(self.shared(decoder_input_ids))
-        causal = torch.triu(torch.ones(T_dec, T_dec, device=y.device), diagonal=1)
-        self_mask = causal.float() * torch.finfo(y.dtype).min
-        self_mask = self_mask[None, None, :, :]
-        cross_mask = (1.0 - attention_mask[:, None, None, :].float()) * torch.finfo(y.dtype).min
-        self_pos = self.dec_self_pos_bias(T_dec, T_dec, y.device)
-        cross_pos = self.dec_cross_pos_bias(T_dec, T_enc, y.device)
-        for block in self.decoder:
-            y = block(y, enc_out, self_mask=self_mask, cross_mask=cross_mask,
-                     self_pos_bias=self_pos, cross_pos_bias=cross_pos)
-        dec_out = norm(y)
+        # --- Masked mean pooling ---
+        mask_f = attention_mask.unsqueeze(-1).float()  # (B, T, 1)
+        pooled = (enc_out * mask_f).sum(dim=1) / mask_f.sum(dim=1).clamp(min=1)  # (B, d_model)
 
         # --- Regression head ---
-        logits = self.regression_head(dec_out[:, -1, :])  # (B, 2)
+        logits = self.regression_head(pooled)  # (B, 2)
 
         if labels is not None:
-            # T5Chem soft-label regression: yield y -> [(100-y)/100, y/100]
             smooth = torch.stack([(100 - labels) / 100, labels / 100], dim=1)
             log_probs = F.log_softmax(logits.float(), dim=-1)
             loss = F.kl_div(log_probs, smooth.float(), reduction='batchmean')
