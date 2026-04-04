@@ -198,8 +198,13 @@ class T5ForRegression(nn.Module):
             config.n_head, is_decoder=False,
             num_buckets=config.relative_attention_num_buckets,
             max_distance=config.relative_attention_max_distance)
-        # Regression head: 2 outputs for soft-label KL divergence (T5Chem)
-        self.regression_head = nn.Linear(config.d_model, 2, bias=False)
+        # Regression head: 2-layer MLP for yield prediction
+        self.regression_head = nn.Sequential(
+            nn.Linear(config.d_model, config.d_model, bias=False),
+            nn.ReLU(),
+            nn.Dropout(config.dropout),
+            nn.Linear(config.d_model, 2, bias=False),
+        )
         self.dropout = nn.Dropout(config.dropout)
         self.pad_token_id = 0  # set from tokenizer before use
 
@@ -222,7 +227,8 @@ class T5ForRegression(nn.Module):
                 nn.init.normal_(attn.o.weight, std=inner ** -0.5)
             nn.init.normal_(block.ffn.wi.weight, std=d ** -0.5)
             nn.init.normal_(block.ffn.wo.weight, std=d_ff ** -0.5)
-        nn.init.normal_(self.regression_head.weight, std=d ** -0.5)
+        nn.init.normal_(self.regression_head[0].weight, std=d ** -0.5)
+        nn.init.normal_(self.regression_head[3].weight, std=d ** -0.5)
         for bias_mod in [self.enc_pos_bias, self.dec_self_pos_bias, self.dec_cross_pos_bias]:
             nn.init.normal_(bias_mod.relative_attention_bias.weight, std=d ** -0.5)
 
