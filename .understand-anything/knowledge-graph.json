@@ -1,0 +1,861 @@
+{
+  "version": "1.0.0",
+  "project": {
+    "name": "autoresearch",
+    "languages": [
+      "python"
+    ],
+    "frameworks": [],
+    "description": "An autonomous AI research agent framework that runs overnight experiments on a single-GPU LLM training setup, modifying code, training for short intervals, evaluating results, and iterating automatically. Based on a simplified implementation of nanochat, the system is directed by Markdown program files rather than direct Python edits.",
+    "analyzedAt": "2026-04-04T00:00:00.000Z",
+    "gitCommitHash": "228791fb499afffb54b46200aca536f79142f117"
+  },
+  "nodes": [
+    {
+      "id": "file:prepare.py",
+      "type": "file",
+      "name": "prepare.py",
+      "filePath": "prepare.py",
+      "summary": "Data preparation and runtime utilities for the autoresearch project. Downloads parquet data shards from HuggingFace, trains a BPE tokenizer using rustbpe/tiktoken, and provides a Tokenizer wrapper class, a best-fit-packing dataloader, and a bits-per-byte evaluation function consumed by the training scripts.",
+      "tags": [
+        "data-pipeline",
+        "tokenizer",
+        "utility",
+        "evaluation",
+        "entry-point"
+      ],
+      "complexity": "complex"
+    },
+    {
+      "id": "file:train_nanochat.py",
+      "type": "file",
+      "name": "train_nanochat.py",
+      "filePath": "train_nanochat.py",
+      "summary": "Single-GPU GPT pretraining script derived from nanochat. Defines a GPT architecture with causal self-attention (sliding window + flash attention 3), value embeddings (ResFormer), rotary position embeddings, and a MuonAdamW hybrid optimizer. Runs a time-budgeted training loop with warmup/warmdown LR schedules, gradient accumulation, and BPB evaluation.",
+      "tags": [
+        "training-script",
+        "deep-learning",
+        "transformer",
+        "optimizer",
+        "entry-point"
+      ],
+      "complexity": "complex"
+    },
+    {
+      "id": "file:train_t5.py",
+      "type": "file",
+      "name": "train_t5.py",
+      "filePath": "train_t5.py",
+      "summary": "Single-GPU GPT pretraining script, nearly identical to train_nanochat.py. Contains the same GPT architecture, MuonAdamW optimizer, and time-budgeted training loop. Appears to be a variant or fork used for a separate experiment.",
+      "tags": [
+        "training-script",
+        "deep-learning",
+        "transformer",
+        "optimizer",
+        "entry-point"
+      ],
+      "complexity": "complex"
+    },
+    {
+      "id": "class:prepare.py:Tokenizer",
+      "type": "class",
+      "name": "Tokenizer",
+      "filePath": "prepare.py",
+      "summary": "Minimal tokenizer wrapper around a tiktoken Encoding object. Provides encode/decode with optional BOS prepend, batch encoding via encode_ordinary_batch, and class-method factory to load from a pre-trained pickle on disk.",
+      "tags": [
+        "tokenizer",
+        "wrapper",
+        "data-model",
+        "serialization"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "func:prepare.py:download_single_shard",
+      "type": "function",
+      "name": "download_single_shard",
+      "filePath": "prepare.py",
+      "summary": "Downloads a single parquet shard from HuggingFace with exponential-backoff retry logic (up to 5 attempts), streaming to a temp file before atomic rename.",
+      "tags": [
+        "data-download",
+        "retry-logic",
+        "io"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "func:prepare.py:download_data",
+      "type": "function",
+      "name": "download_data",
+      "filePath": "prepare.py",
+      "summary": "Orchestrates parallel download of training shards plus a pinned validation shard using a multiprocessing Pool, skipping already-downloaded files.",
+      "tags": [
+        "data-download",
+        "orchestration",
+        "multiprocessing"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "func:prepare.py:train_tokenizer",
+      "type": "function",
+      "name": "train_tokenizer",
+      "filePath": "prepare.py",
+      "summary": "Trains a BPE tokenizer from parquet text data using rustbpe, wraps the result in a tiktoken Encoding, saves it as a pickle, and builds a token-to-byte-length lookup tensor for BPB evaluation.",
+      "tags": [
+        "tokenizer",
+        "training",
+        "serialization"
+      ],
+      "complexity": "complex"
+    },
+    {
+      "id": "func:prepare.py:text_iterator",
+      "type": "function",
+      "name": "text_iterator",
+      "filePath": "prepare.py",
+      "summary": "Generator that yields text documents from training-split parquet files (excluding the pinned validation shard), capping per-document length and total character budget.",
+      "tags": [
+        "data-pipeline",
+        "generator",
+        "iterator"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "func:prepare.py:make_dataloader",
+      "type": "function",
+      "name": "make_dataloader",
+      "filePath": "prepare.py",
+      "summary": "BOS-aligned infinite dataloader with best-fit document packing. Uses pre-allocated pinned CPU and GPU buffers for async transfer, achieving 100% token utilization with no padding by cropping the shortest document to fill remaining row capacity.",
+      "tags": [
+        "dataloader",
+        "data-pipeline",
+        "gpu-optimization",
+        "generator"
+      ],
+      "complexity": "complex"
+    },
+    {
+      "id": "func:prepare.py:evaluate_bpb",
+      "type": "function",
+      "name": "evaluate_bpb",
+      "filePath": "prepare.py",
+      "summary": "Computes bits-per-byte (BPB) on the validation set as the fixed evaluation metric. Sums per-token cross-entropy weighted by UTF-8 byte lengths, excluding special tokens, then converts nats to bits.",
+      "tags": [
+        "evaluation",
+        "metric",
+        "validation"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "class:train_nanochat.py:GPTConfig",
+      "type": "class",
+      "name": "GPTConfig",
+      "filePath": "train_nanochat.py",
+      "summary": "Dataclass holding GPT model hyperparameters: sequence length, vocab size, layer count, head counts (including GQA via n_kv_head), embedding dimension, and sliding window pattern string.",
+      "tags": [
+        "config",
+        "data-model",
+        "dataclass"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:train_nanochat.py:CausalSelfAttention",
+      "type": "class",
+      "name": "CausalSelfAttention",
+      "filePath": "train_nanochat.py",
+      "summary": "Causal self-attention module with grouped query attention support, rotary embeddings, QK-norm, flash attention 3 backend, and optional value embedding residual (ResFormer) gated by a learned per-head input-dependent gate.",
+      "tags": [
+        "attention",
+        "neural-network",
+        "transformer",
+        "flash-attention"
+      ],
+      "complexity": "complex"
+    },
+    {
+      "id": "class:train_nanochat.py:MLP",
+      "type": "class",
+      "name": "MLP",
+      "filePath": "train_nanochat.py",
+      "summary": "Two-layer MLP with ReluSquared activation (relu followed by squaring) and 4x hidden expansion, used as the feedforward block in each transformer layer.",
+      "tags": [
+        "neural-network",
+        "feedforward",
+        "transformer"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:train_nanochat.py:Block",
+      "type": "class",
+      "name": "Block",
+      "filePath": "train_nanochat.py",
+      "summary": "Single transformer block composing CausalSelfAttention and MLP with pre-norm (RMS norm) residual connections and value embedding pass-through.",
+      "tags": [
+        "neural-network",
+        "transformer",
+        "residual"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:train_nanochat.py:GPT",
+      "type": "class",
+      "name": "GPT",
+      "filePath": "train_nanochat.py",
+      "summary": "Full GPT language model with token and value embeddings, learnable per-layer residual and x0 scaling lambdas, rotary position embeddings, sliding window attention patterns, logit soft-capping, and integrated optimizer setup (MuonAdamW with per-parameter-group LR scaling).",
+      "tags": [
+        "neural-network",
+        "transformer",
+        "language-model",
+        "deep-learning"
+      ],
+      "complexity": "complex"
+    },
+    {
+      "id": "class:train_nanochat.py:MuonAdamW",
+      "type": "class",
+      "name": "MuonAdamW",
+      "filePath": "train_nanochat.py",
+      "summary": "Hybrid optimizer combining Muon (polar express orthogonalization with Nesterov momentum and NorMuon variance reduction) for 2D matrix parameters and AdamW for all other parameters. Uses 0-D CPU tensors to avoid torch.compile recompilation.",
+      "tags": [
+        "optimizer",
+        "deep-learning",
+        "muon",
+        "adamw"
+      ],
+      "complexity": "complex"
+    },
+    {
+      "id": "func:train_nanochat.py:adamw_step_fused",
+      "type": "function",
+      "name": "adamw_step_fused",
+      "filePath": "train_nanochat.py",
+      "summary": "Torch-compiled fused AdamW parameter update: weight decay, first/second moment EMA updates, bias correction, and parameter step in a single compiled graph.",
+      "tags": [
+        "optimizer",
+        "torch-compile",
+        "fused-kernel"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "func:train_nanochat.py:muon_step_fused",
+      "type": "function",
+      "name": "muon_step_fused",
+      "filePath": "train_nanochat.py",
+      "summary": "Torch-compiled fused Muon optimizer step implementing Nesterov momentum, polar express orthogonalization (iterative Newton-Schulz), NorMuon variance reduction with second-moment tracking, and cautious weight decay with gradient-aligned masking.",
+      "tags": [
+        "optimizer",
+        "torch-compile",
+        "fused-kernel",
+        "muon"
+      ],
+      "complexity": "complex"
+    },
+    {
+      "id": "class:train_t5.py:GPTConfig",
+      "type": "class",
+      "name": "GPTConfig",
+      "filePath": "train_t5.py",
+      "summary": "Dataclass holding GPT model hyperparameters (identical to train_nanochat.py variant): sequence length, vocab size, layer count, head counts, embedding dimension, and sliding window pattern.",
+      "tags": [
+        "config",
+        "data-model",
+        "dataclass"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:train_t5.py:CausalSelfAttention",
+      "type": "class",
+      "name": "CausalSelfAttention",
+      "filePath": "train_t5.py",
+      "summary": "Causal self-attention with GQA, rotary embeddings, QK-norm, flash attention 3, and optional value embedding residual gating (identical to train_nanochat.py).",
+      "tags": [
+        "attention",
+        "neural-network",
+        "transformer",
+        "flash-attention"
+      ],
+      "complexity": "complex"
+    },
+    {
+      "id": "class:train_t5.py:GPT",
+      "type": "class",
+      "name": "GPT",
+      "filePath": "train_t5.py",
+      "summary": "Full GPT language model with value embeddings, per-layer residual lambdas, rotary embeddings, sliding window attention, logit soft-capping, and MuonAdamW optimizer setup (identical to train_nanochat.py).",
+      "tags": [
+        "neural-network",
+        "transformer",
+        "language-model",
+        "deep-learning"
+      ],
+      "complexity": "complex"
+    },
+    {
+      "id": "class:train_t5.py:MuonAdamW",
+      "type": "class",
+      "name": "MuonAdamW",
+      "filePath": "train_t5.py",
+      "summary": "Hybrid Muon + AdamW optimizer (identical to train_nanochat.py variant), using polar express orthogonalization for matrix params and standard AdamW for embeddings and scalars.",
+      "tags": [
+        "optimizer",
+        "deep-learning",
+        "muon",
+        "adamw"
+      ],
+      "complexity": "complex"
+    },
+    {
+      "id": "func:train_t5.py:muon_step_fused",
+      "type": "function",
+      "name": "muon_step_fused",
+      "filePath": "train_t5.py",
+      "summary": "Torch-compiled fused Muon optimizer step with Nesterov momentum, polar express orthogonalization, NorMuon variance reduction, and cautious weight decay (identical to train_nanochat.py).",
+      "tags": [
+        "optimizer",
+        "torch-compile",
+        "fused-kernel",
+        "muon"
+      ],
+      "complexity": "complex"
+    },
+    {
+      "id": "func:train_t5.py:adamw_step_fused",
+      "type": "function",
+      "name": "adamw_step_fused",
+      "filePath": "train_t5.py",
+      "summary": "Torch-compiled fused AdamW update step (identical to train_nanochat.py).",
+      "tags": [
+        "optimizer",
+        "torch-compile",
+        "fused-kernel"
+      ],
+      "complexity": "moderate"
+    }
+  ],
+  "edges": [
+    {
+      "source": "file:train_nanochat.py",
+      "target": "file:prepare.py",
+      "type": "imports",
+      "weight": 0.7,
+      "metadata": {
+        "label": "imports MAX_SEQ_LEN, TIME_BUDGET, Tokenizer, make_dataloader, evaluate_bpb"
+      },
+      "direction": "forward"
+    },
+    {
+      "source": "file:train_t5.py",
+      "target": "file:prepare.py",
+      "type": "imports",
+      "weight": 0.7,
+      "metadata": {
+        "label": "imports MAX_SEQ_LEN, TIME_BUDGET, Tokenizer, make_dataloader, evaluate_bpb"
+      },
+      "direction": "forward"
+    },
+    {
+      "source": "file:train_nanochat.py",
+      "target": "file:train_t5.py",
+      "type": "similar_to",
+      "weight": 0.5,
+      "metadata": {
+        "label": "Nearly identical training scripts (same model, optimizer, and training loop)"
+      },
+      "direction": "forward"
+    },
+    {
+      "source": "file:prepare.py",
+      "target": "class:prepare.py:Tokenizer",
+      "type": "contains",
+      "weight": 1.0,
+      "direction": "forward"
+    },
+    {
+      "source": "file:prepare.py",
+      "target": "func:prepare.py:download_single_shard",
+      "type": "contains",
+      "weight": 1.0,
+      "direction": "forward"
+    },
+    {
+      "source": "file:prepare.py",
+      "target": "func:prepare.py:download_data",
+      "type": "contains",
+      "weight": 1.0,
+      "direction": "forward"
+    },
+    {
+      "source": "file:prepare.py",
+      "target": "func:prepare.py:train_tokenizer",
+      "type": "contains",
+      "weight": 1.0,
+      "direction": "forward"
+    },
+    {
+      "source": "file:prepare.py",
+      "target": "func:prepare.py:text_iterator",
+      "type": "contains",
+      "weight": 1.0,
+      "direction": "forward"
+    },
+    {
+      "source": "file:prepare.py",
+      "target": "func:prepare.py:make_dataloader",
+      "type": "contains",
+      "weight": 1.0,
+      "direction": "forward"
+    },
+    {
+      "source": "file:prepare.py",
+      "target": "func:prepare.py:evaluate_bpb",
+      "type": "contains",
+      "weight": 1.0,
+      "direction": "forward"
+    },
+    {
+      "source": "file:train_nanochat.py",
+      "target": "class:train_nanochat.py:GPTConfig",
+      "type": "contains",
+      "weight": 1.0,
+      "direction": "forward"
+    },
+    {
+      "source": "file:train_nanochat.py",
+      "target": "class:train_nanochat.py:CausalSelfAttention",
+      "type": "contains",
+      "weight": 1.0,
+      "direction": "forward"
+    },
+    {
+      "source": "file:train_nanochat.py",
+      "target": "class:train_nanochat.py:MLP",
+      "type": "contains",
+      "weight": 1.0,
+      "direction": "forward"
+    },
+    {
+      "source": "file:train_nanochat.py",
+      "target": "class:train_nanochat.py:Block",
+      "type": "contains",
+      "weight": 1.0,
+      "direction": "forward"
+    },
+    {
+      "source": "file:train_nanochat.py",
+      "target": "class:train_nanochat.py:GPT",
+      "type": "contains",
+      "weight": 1.0,
+      "direction": "forward"
+    },
+    {
+      "source": "file:train_nanochat.py",
+      "target": "class:train_nanochat.py:MuonAdamW",
+      "type": "contains",
+      "weight": 1.0,
+      "direction": "forward"
+    },
+    {
+      "source": "file:train_nanochat.py",
+      "target": "func:train_nanochat.py:adamw_step_fused",
+      "type": "contains",
+      "weight": 1.0,
+      "direction": "forward"
+    },
+    {
+      "source": "file:train_nanochat.py",
+      "target": "func:train_nanochat.py:muon_step_fused",
+      "type": "contains",
+      "weight": 1.0,
+      "direction": "forward"
+    },
+    {
+      "source": "file:train_t5.py",
+      "target": "class:train_t5.py:GPTConfig",
+      "type": "contains",
+      "weight": 1.0,
+      "direction": "forward"
+    },
+    {
+      "source": "file:train_t5.py",
+      "target": "class:train_t5.py:CausalSelfAttention",
+      "type": "contains",
+      "weight": 1.0,
+      "direction": "forward"
+    },
+    {
+      "source": "file:train_t5.py",
+      "target": "class:train_t5.py:GPT",
+      "type": "contains",
+      "weight": 1.0,
+      "direction": "forward"
+    },
+    {
+      "source": "file:train_t5.py",
+      "target": "class:train_t5.py:MuonAdamW",
+      "type": "contains",
+      "weight": 1.0,
+      "direction": "forward"
+    },
+    {
+      "source": "file:train_t5.py",
+      "target": "func:train_t5.py:adamw_step_fused",
+      "type": "contains",
+      "weight": 1.0,
+      "direction": "forward"
+    },
+    {
+      "source": "file:train_t5.py",
+      "target": "func:train_t5.py:muon_step_fused",
+      "type": "contains",
+      "weight": 1.0,
+      "direction": "forward"
+    },
+    {
+      "source": "file:prepare.py",
+      "target": "func:prepare.py:download_single_shard",
+      "type": "exports",
+      "weight": 0.8,
+      "direction": "forward"
+    },
+    {
+      "source": "file:prepare.py",
+      "target": "func:prepare.py:download_data",
+      "type": "exports",
+      "weight": 0.8,
+      "direction": "forward"
+    },
+    {
+      "source": "file:prepare.py",
+      "target": "func:prepare.py:train_tokenizer",
+      "type": "exports",
+      "weight": 0.8,
+      "direction": "forward"
+    },
+    {
+      "source": "file:prepare.py",
+      "target": "func:prepare.py:make_dataloader",
+      "type": "exports",
+      "weight": 0.8,
+      "direction": "forward"
+    },
+    {
+      "source": "file:prepare.py",
+      "target": "func:prepare.py:evaluate_bpb",
+      "type": "exports",
+      "weight": 0.8,
+      "direction": "forward"
+    },
+    {
+      "source": "file:prepare.py",
+      "target": "class:prepare.py:Tokenizer",
+      "type": "exports",
+      "weight": 0.8,
+      "direction": "forward"
+    },
+    {
+      "source": "file:train_nanochat.py",
+      "target": "func:prepare.py:make_dataloader",
+      "type": "calls",
+      "weight": 0.8,
+      "metadata": {
+        "label": "Creates train and val dataloaders"
+      },
+      "direction": "forward"
+    },
+    {
+      "source": "file:train_nanochat.py",
+      "target": "func:prepare.py:evaluate_bpb",
+      "type": "calls",
+      "weight": 0.8,
+      "metadata": {
+        "label": "Final validation BPB evaluation"
+      },
+      "direction": "forward"
+    },
+    {
+      "source": "file:train_nanochat.py",
+      "target": "class:prepare.py:Tokenizer",
+      "type": "calls",
+      "weight": 0.8,
+      "metadata": {
+        "label": "Tokenizer.from_directory() to load tokenizer"
+      },
+      "direction": "forward"
+    },
+    {
+      "source": "file:train_t5.py",
+      "target": "func:prepare.py:make_dataloader",
+      "type": "calls",
+      "weight": 0.8,
+      "metadata": {
+        "label": "Creates train and val dataloaders"
+      },
+      "direction": "forward"
+    },
+    {
+      "source": "file:train_t5.py",
+      "target": "func:prepare.py:evaluate_bpb",
+      "type": "calls",
+      "weight": 0.8,
+      "metadata": {
+        "label": "Final validation BPB evaluation"
+      },
+      "direction": "forward"
+    },
+    {
+      "source": "file:train_t5.py",
+      "target": "class:prepare.py:Tokenizer",
+      "type": "calls",
+      "weight": 0.8,
+      "metadata": {
+        "label": "Tokenizer.from_directory() to load tokenizer"
+      },
+      "direction": "forward"
+    },
+    {
+      "source": "func:prepare.py:download_data",
+      "target": "func:prepare.py:download_single_shard",
+      "type": "calls",
+      "weight": 0.8,
+      "metadata": {
+        "label": "Pool.map over download_single_shard"
+      },
+      "direction": "forward"
+    },
+    {
+      "source": "func:prepare.py:train_tokenizer",
+      "target": "func:prepare.py:text_iterator",
+      "type": "calls",
+      "weight": 0.8,
+      "metadata": {
+        "label": "Feeds text_iterator to rustbpe training"
+      },
+      "direction": "forward"
+    },
+    {
+      "source": "func:prepare.py:evaluate_bpb",
+      "target": "func:prepare.py:make_dataloader",
+      "type": "calls",
+      "weight": 0.8,
+      "metadata": {
+        "label": "Creates val dataloader for evaluation"
+      },
+      "direction": "forward"
+    },
+    {
+      "source": "class:train_nanochat.py:Block",
+      "target": "class:train_nanochat.py:CausalSelfAttention",
+      "type": "depends_on",
+      "weight": 0.6,
+      "metadata": {
+        "label": "Block contains CausalSelfAttention as self.attn"
+      },
+      "direction": "forward"
+    },
+    {
+      "source": "class:train_nanochat.py:Block",
+      "target": "class:train_nanochat.py:MLP",
+      "type": "depends_on",
+      "weight": 0.6,
+      "metadata": {
+        "label": "Block contains MLP as self.mlp"
+      },
+      "direction": "forward"
+    },
+    {
+      "source": "class:train_nanochat.py:GPT",
+      "target": "class:train_nanochat.py:Block",
+      "type": "depends_on",
+      "weight": 0.6,
+      "metadata": {
+        "label": "GPT stacks n_layer Block instances"
+      },
+      "direction": "forward"
+    },
+    {
+      "source": "class:train_nanochat.py:GPT",
+      "target": "class:train_nanochat.py:MuonAdamW",
+      "type": "depends_on",
+      "weight": 0.6,
+      "metadata": {
+        "label": "GPT.setup_optimizer creates MuonAdamW"
+      },
+      "direction": "forward"
+    },
+    {
+      "source": "class:train_nanochat.py:MuonAdamW",
+      "target": "func:train_nanochat.py:adamw_step_fused",
+      "type": "calls",
+      "weight": 0.8,
+      "metadata": {
+        "label": "_step_adamw delegates to fused kernel"
+      },
+      "direction": "forward"
+    },
+    {
+      "source": "class:train_nanochat.py:MuonAdamW",
+      "target": "func:train_nanochat.py:muon_step_fused",
+      "type": "calls",
+      "weight": 0.8,
+      "metadata": {
+        "label": "_step_muon delegates to fused kernel"
+      },
+      "direction": "forward"
+    },
+    {
+      "source": "class:train_t5.py:GPT",
+      "target": "class:train_t5.py:MuonAdamW",
+      "type": "depends_on",
+      "weight": 0.6,
+      "metadata": {
+        "label": "GPT.setup_optimizer creates MuonAdamW"
+      },
+      "direction": "forward"
+    },
+    {
+      "source": "class:train_t5.py:MuonAdamW",
+      "target": "func:train_t5.py:adamw_step_fused",
+      "type": "calls",
+      "weight": 0.8,
+      "metadata": {
+        "label": "_step_adamw delegates to fused kernel"
+      },
+      "direction": "forward"
+    },
+    {
+      "source": "class:train_t5.py:MuonAdamW",
+      "target": "func:train_t5.py:muon_step_fused",
+      "type": "calls",
+      "weight": 0.8,
+      "metadata": {
+        "label": "_step_muon delegates to fused kernel"
+      },
+      "direction": "forward"
+    }
+  ],
+  "layers": [
+    {
+      "id": "layer:data-pipeline",
+      "name": "Data Pipeline & Utilities",
+      "description": "Foundational data preparation, BPE tokenizer training, best-fit-packing dataloader, and BPB evaluation utilities shared by all training experiment scripts.",
+      "nodeIds": [
+        "file:prepare.py",
+        "class:prepare.py:Tokenizer",
+        "func:prepare.py:download_single_shard",
+        "func:prepare.py:download_data",
+        "func:prepare.py:train_tokenizer",
+        "func:prepare.py:text_iterator",
+        "func:prepare.py:make_dataloader",
+        "func:prepare.py:evaluate_bpb"
+      ]
+    },
+    {
+      "id": "layer:training-nanochat",
+      "name": "Nanochat Training Experiment",
+      "description": "Primary single-GPU GPT pretraining script defining the transformer model architecture, MuonAdamW hybrid optimizer, and time-budgeted training loop.",
+      "nodeIds": [
+        "file:train_nanochat.py",
+        "class:train_nanochat.py:GPTConfig",
+        "class:train_nanochat.py:CausalSelfAttention",
+        "class:train_nanochat.py:MLP",
+        "class:train_nanochat.py:Block",
+        "class:train_nanochat.py:GPT",
+        "class:train_nanochat.py:MuonAdamW",
+        "func:train_nanochat.py:adamw_step_fused",
+        "func:train_nanochat.py:muon_step_fused"
+      ]
+    },
+    {
+      "id": "layer:training-t5-variant",
+      "name": "T5 Variant Training Experiment",
+      "description": "Forked GPT pretraining script with identical model architecture and optimizer for running independent experimental variations in parallel.",
+      "nodeIds": [
+        "file:train_t5.py",
+        "class:train_t5.py:GPTConfig",
+        "class:train_t5.py:CausalSelfAttention",
+        "class:train_t5.py:GPT",
+        "class:train_t5.py:MuonAdamW",
+        "func:train_t5.py:muon_step_fused",
+        "func:train_t5.py:adamw_step_fused"
+      ]
+    }
+  ],
+  "tour": [
+    {
+      "order": 1,
+      "title": "Training Entry Point",
+      "description": "Start with train_nanochat.py, the main training script and highest fan-out node in the project. This single file orchestrates the entire training pipeline: it defines the GPT model architecture, sets up the custom MuonAdamW optimizer, imports data utilities from prepare.py, and runs a time-budgeted training loop on a single GPU.",
+      "nodeIds": [
+        "file:train_nanochat.py"
+      ]
+    },
+    {
+      "order": 2,
+      "title": "Data Preparation Foundation",
+      "description": "The prepare.py module is the most-imported file in the project and forms the foundational Data Pipeline layer. It handles everything upstream of model training: downloading parquet shards in parallel, training a BPE tokenizer, wrapping it for runtime use, building an efficient dataloader, and computing evaluation metrics.",
+      "nodeIds": [
+        "file:prepare.py"
+      ]
+    },
+    {
+      "order": 3,
+      "title": "Data Download and Tokenization",
+      "description": "Before any training can begin, data must be fetched and tokenized. The download_data function orchestrates parallel shard downloads, while train_tokenizer trains a BPE tokenizer on that data, and the Tokenizer class provides a minimal runtime wrapper around the resulting tiktoken Encoding.",
+      "nodeIds": [
+        "func:prepare.py:download_data",
+        "func:prepare.py:train_tokenizer",
+        "class:prepare.py:Tokenizer"
+      ]
+    },
+    {
+      "order": 4,
+      "title": "Dataloader and Evaluation",
+      "description": "make_dataloader creates a BOS-aligned infinite dataloader that uses best-fit packing to efficiently fill each batch with variable-length sequences. evaluate_bpb computes bits-per-byte, the project's primary evaluation metric. Both are the critical interface between the data pipeline and the training loop.",
+      "nodeIds": [
+        "func:prepare.py:make_dataloader",
+        "func:prepare.py:evaluate_bpb"
+      ]
+    },
+    {
+      "order": 5,
+      "title": "GPT Model Architecture",
+      "description": "The GPT class defines the complete transformer model with value embeddings, rotary position embeddings (RoPE), and sliding window attention. This is the core neural network that the training loop optimizes.",
+      "nodeIds": [
+        "class:train_nanochat.py:GPT"
+      ]
+    },
+    {
+      "order": 6,
+      "title": "Attention Mechanism",
+      "description": "CausalSelfAttention combines flash attention 3 for memory-efficient computation, grouped-query attention (GQA), rotary embeddings, and a value embedding residual. This is the most compute-intensive component.",
+      "nodeIds": [
+        "class:train_nanochat.py:CausalSelfAttention"
+      ]
+    },
+    {
+      "order": 7,
+      "title": "Custom Optimizer",
+      "description": "MuonAdamW applies the Muon update rule (polar express orthogonalization) to matrix parameters and standard AdamW to others, using fused CUDA kernels. muon_step_fused implements the core Newton-Schulz iteration for approximate polar decomposition.",
+      "nodeIds": [
+        "class:train_nanochat.py:MuonAdamW",
+        "func:train_nanochat.py:muon_step_fused"
+      ]
+    },
+    {
+      "order": 8,
+      "title": "Variant Training Script",
+      "description": "train_t5.py is a nearly identical variant of train_nanochat.py representing a parallel experiment track. Multiple training scripts reflect the project's core purpose: an autonomous research agent that evaluates different configurations overnight.",
+      "nodeIds": [
+        "file:train_t5.py"
+      ]
+    }
+  ]
+}
