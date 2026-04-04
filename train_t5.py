@@ -362,7 +362,7 @@ DROPOUT = 0.1           # dropout rate
 
 # Optimization
 DEVICE_BATCH_SIZE = 32   # per-device batch size
-LEARNING_RATE = 5e-4     # initial learning rate (AdamW)
+LEARNING_RATE = 1e-3     # initial learning rate (AdamW)
 WEIGHT_DECAY = 0.01      # weight decay
 ADAM_BETAS = (0.9, 0.999) # Adam betas
 MAX_GRAD_NORM = 1.0      # gradient clipping max norm
