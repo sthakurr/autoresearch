@@ -360,13 +360,13 @@ N_ENCODER_LAYERS = 4    # encoder depth
 N_DECODER_LAYERS = 4    # decoder depth
 DROPOUT = 0.1           # dropout rate
 
-# Optimization (T5Chem defaults: AdamW, lr=5e-4, no weight decay)
+# Optimization
 DEVICE_BATCH_SIZE = 32   # per-device batch size
 LEARNING_RATE = 5e-4     # initial learning rate (AdamW)
-WEIGHT_DECAY = 0.0       # weight decay
+WEIGHT_DECAY = 0.01      # weight decay
 ADAM_BETAS = (0.9, 0.999) # Adam betas
 MAX_GRAD_NORM = 1.0      # gradient clipping max norm
-WARMUP_RATIO = 0.0       # fraction of time budget for LR warmup
+WARMUP_RATIO = 0.06      # fraction of time budget for LR warmup
 WARMDOWN_RATIO = 0.3     # fraction of time budget for LR warmdown
 FINAL_LR_FRAC = 0.0      # final LR as fraction of initial
 
@@ -428,11 +428,9 @@ print(f"Time budget: {TIME_BUDGET}s")
 def get_lr_multiplier(progress):
     if progress < WARMUP_RATIO:
         return progress / WARMUP_RATIO if WARMUP_RATIO > 0 else 1.0
-    elif progress < 1.0 - WARMDOWN_RATIO:
-        return 1.0
     else:
-        cooldown = (1.0 - progress) / WARMDOWN_RATIO
-        return cooldown * 1.0 + (1 - cooldown) * FINAL_LR_FRAC
+        cosine_progress = (progress - WARMUP_RATIO) / (1.0 - WARMUP_RATIO)
+        return FINAL_LR_FRAC + 0.5 * (1.0 - FINAL_LR_FRAC) * (1.0 + math.cos(math.pi * cosine_progress))
 
 # ---------------------------------------------------------------------------
 # Training loop
