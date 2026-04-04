@@ -1,0 +1,15 @@
+commit	val_mae	memory_gb	status	description
+4c8fe62	18.8325	3.0	keep	baseline: 4L enc/dec d256 d_ff2048 8h lr5e-4 bs32
+9e51847	18.1740	5.2	keep	exp1: d512 6L enc/dec lr3e-4 wd0.01 warmup6%
+0653a41	18.3502	6.5	discard	exp2: d512 4L bs64 dropout0.05 lr5e-4 (worse than exp1)
+b6e1399	18.3769	5.9	discard	exp3: SwiGLU gated FFN (more params slower fewer steps)
+130ad45	18.5839	4.7	discard	exp4: d_ff=1024 (less capacity hurt)
+7c7fc55	18.6404	7.9	discard	exp5: 10L enc 2L dec asymmetric (too few steps)
+afe67e7	20.7313	5.2	discard	exp6: lr=1e-3 dropout=0.05 (LR too high)
+fe5c7d1	19.5556	5.2	discard	exp7: lr=5e-4 dropout=0.05 (LR still too high for d512)
+ffe577b	18.1629	5.2	keep	exp8: cosine LR schedule (slight improvement + simpler)
+643c71c	16.6835	4.7	keep	exp9: encoder-only + mean pooling (drop decoder) BIG WIN
+3ad1bfa	16.0281	7.8	keep	exp10: 10L encoder-only (deeper helps)
+470028b	15.5933	9.3	keep	exp11: 12L encoder-only (depth keeps helping)
+e48c68c	15.4330	12.4	keep	exp12: 16L encoder-only (diminishing returns on depth)
+9638330	16.2368	14.4	discard	exp13: d768 12L (too wide too few steps)
