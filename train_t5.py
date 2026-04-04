@@ -198,11 +198,11 @@ class T5ForRegression(nn.Module):
             config.n_head, is_decoder=False,
             num_buckets=config.relative_attention_num_buckets,
             max_distance=config.relative_attention_max_distance)
-        # Regression head: 2-layer MLP for yield prediction
+        # Regression head: 2-layer MLP for yield prediction (higher dropout)
         self.regression_head = nn.Sequential(
             nn.Linear(config.d_model, config.d_model, bias=False),
             nn.ReLU(),
-            nn.Dropout(config.dropout),
+            nn.Dropout(0.3),
             nn.Linear(config.d_model, 2, bias=False),
         )
         self.dropout = nn.Dropout(config.dropout)
