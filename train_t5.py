@@ -375,7 +375,7 @@ LEARNING_RATE = 9e-4     # initial learning rate (slightly lower for more SDPA s
 WEIGHT_DECAY = 0.02      # weight decay
 ADAM_BETAS = (0.9, 0.999) # Adam betas
 MAX_GRAD_NORM = 1.0      # gradient clipping max norm
-WARMUP_RATIO = 0.06      # fraction of time budget for LR warmup
+WARMUP_RATIO = 0.08      # fraction of time budget for LR warmup
 WARMDOWN_RATIO = 0.3     # fraction of time budget for LR warmdown
 FINAL_LR_FRAC = 0.0      # final LR as fraction of initial
 
