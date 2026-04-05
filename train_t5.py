@@ -111,14 +111,17 @@ class T5Attention(nn.Module):
         S = kv_in.size(1)
         k = self.k(kv_in).view(B, S, self.n_head, self.d_kv).transpose(1, 2)
         v = self.v(kv_in).view(B, S, self.n_head, self.d_kv).transpose(1, 2)
-        scores = torch.matmul(q, k.transpose(-2, -1))  # (B, H, T, S)
-        if position_bias is not None:
-            scores = scores + position_bias
-        if mask is not None:
-            scores = scores + mask
-        attn = F.softmax(scores.float(), dim=-1).to(q.dtype)
-        attn = self.dropout(attn)
-        y = torch.matmul(attn, v).transpose(1, 2).contiguous().view(B, T, self.inner_dim)
+        attn_mask = None
+        if position_bias is not None or mask is not None:
+            attn_mask = torch.zeros(B, self.n_head, T, S, device=q.device, dtype=q.dtype)
+            if position_bias is not None:
+                attn_mask = attn_mask + position_bias
+            if mask is not None:
+                attn_mask = attn_mask + mask
+        y = F.scaled_dot_product_attention(q, k, v, attn_mask=attn_mask,
+                                           dropout_p=self.dropout.p if self.training else 0.0,
+                                           scale=1.0)
+        y = y.transpose(1, 2).contiguous().view(B, T, self.inner_dim)
         return self.o(y)
 
 
