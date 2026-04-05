@@ -367,7 +367,7 @@ N_DECODER_LAYERS = 4    # decoder depth
 DROPOUT = 0.1           # dropout rate
 
 # Optimization
-DEVICE_BATCH_SIZE = 32   # per-device batch size
+DEVICE_BATCH_SIZE = 16   # per-device batch size (more updates on small dataset)
 LEARNING_RATE = 1e-3     # initial learning rate (AdamW)
 WEIGHT_DECAY = 0.01      # weight decay
 ADAM_BETAS = (0.9, 0.999) # Adam betas
