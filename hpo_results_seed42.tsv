@@ -109,3 +109,11 @@ trial	val_mae	memory_gb	status	description
 97	5.6586	3.1	ok	batch_size=32 beta1=0.9 dropout=0.0 head_dropout=0.0 head_type=mlp learning_rate=0.0004146127872807581 lr_schedule=linear warmup_ratio=0.02 weight_decay=0.01035095287931195
 98	6.6174	6.0	ok	batch_size=64 beta1=0.9 dropout=0.0 head_dropout=0.05 head_type=mlp learning_rate=0.00014875789349027107 lr_schedule=linear warmup_ratio=0.04 weight_decay=0.016009040073310346
 99	5.2996	1.0	ok	batch_size=8 beta1=0.9 dropout=0.0 head_dropout=0.0 head_type=mlp learning_rate=0.00028032195808692695 lr_schedule=linear warmup_ratio=0.04 weight_decay=0.01770095244870585
+0	7.6483	5.8	ok	batch_size=64 beta1=0.85 dropout=0.2 head_dropout=0.35000000000000003 head_type=linear learning_rate=0.0003574712922600243 lr_schedule=cosine warmup_ratio=0.0 weight_decay=0.04753571532049581
+1	6.0275	1.6	ok	batch_size=16 beta1=0.85 dropout=0.15000000000000002 head_dropout=0.4 head_type=mlp learning_rate=0.0002814509271606064 lr_schedule=linear warmup_ratio=0.02 weight_decay=0.026237821581611892
+0	7.7177	5.8	ok	batch_size=64 beta1=0.85 dropout=0.2 head_dropout=0.35000000000000003 head_type=linear learning_rate=0.0003574712922600243 lr_schedule=cosine warmup_ratio=0.0 weight_decay=0.04753571532049581
+1	5.9028	1.6	ok	batch_size=16 beta1=0.85 dropout=0.15000000000000002 head_dropout=0.4 head_type=mlp learning_rate=0.0002814509271606064 lr_schedule=linear warmup_ratio=0.02 weight_decay=0.026237821581611892
+2	6.0169	0.8	ok	batch_size=8 beta1=0.9 dropout=0.0 head_dropout=0.25 head_type=linear learning_rate=0.00012476394272569445 lr_schedule=cosine warmup_ratio=0.0 weight_decay=0.04744427686266667
+3	5.2973	0.8	ok	batch_size=8 beta1=0.9 dropout=0.0 head_dropout=0.1 head_type=mlp learning_rate=0.000642033033629786 lr_schedule=linear warmup_ratio=0.0 weight_decay=0.009242722776276352
+4	5.8816	2.4	ok	batch_size=24 beta1=0.85 dropout=0.0 head_dropout=0.4 head_type=mlp learning_rate=0.00026000059117302663 lr_schedule=linear warmup_ratio=0.1 weight_decay=0.027134804157912425
+5	12.1267	3.6	ok	batch_size=32 beta1=0.9 dropout=0.3 head_dropout=0.25 head_type=mlp learning_rate=0.0018832519048593583 lr_schedule=linear warmup_ratio=0.0 weight_decay=0.031164906341377897

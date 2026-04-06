@@ -7,8 +7,10 @@ Architecture is FIXED to match pretrained weights (d_model=256, d_ff=2048,
 n_head=8, d_kv=64, 4L encoder, 4L decoder).
 
 Usage:
-    uv run hpo.py                    # run 100 trials (default)
-    uv run hpo.py --n-trials 50      # run 50 trials
+    uv run hpo.py                                    # 100 trials, seed 42
+    uv run hpo.py --n-trials 50 --seed 123           # 50 trials, seed 123
+    uv run hpo.py --wandb-group my_group             # custom wandb group
+    uv run hpo.py --no-wandb                         # disable wandb logging
 """
 
 import argparse
@@ -30,6 +32,17 @@ from train_t5 import T5Config, T5ForRegression, PRETRAINED_DIR
 # ---------------------------------------------------------------------------
 # Search space (same hyperparameters the agentic approach explored)
 # ---------------------------------------------------------------------------
+
+# Fixed architecture constants (must match pretrained weights)
+ARCH_CONFIG = dict(
+    d_model=256,
+    d_ff=2048,
+    n_head=8,
+    d_kv=64,
+    n_encoder_layers=4,
+    n_decoder_layers=4,
+)
+
 
 def suggest_hparams(trial: optuna.Trial) -> dict:
     return dict(
@@ -63,8 +76,13 @@ def train_and_evaluate(hparams: dict, seed: int = 42) -> dict:
     vocab_size = tokenizer.get_vocab_size()
 
     config = T5Config(
-        vocab_size=vocab_size, d_model=256, d_ff=2048, n_head=8, d_kv=64,
-        n_encoder_layers=4, n_decoder_layers=4,
+        vocab_size=vocab_size,
+        d_model=ARCH_CONFIG["d_model"],
+        d_ff=ARCH_CONFIG["d_ff"],
+        n_head=ARCH_CONFIG["n_head"],
+        d_kv=ARCH_CONFIG["d_kv"],
+        n_encoder_layers=ARCH_CONFIG["n_encoder_layers"],
+        n_decoder_layers=ARCH_CONFIG["n_decoder_layers"],
         dropout=hparams["dropout"],
     )
 
@@ -189,52 +207,98 @@ def train_and_evaluate(hparams: dict, seed: int = 42) -> dict:
 # Optuna objective + logging
 # ---------------------------------------------------------------------------
 
-RESULTS_FILE = "hpo_results.tsv"
+def results_file(seed: int) -> str:
+    return f"hpo_results_seed{seed}.tsv"
 
 
-def write_header():
-    if not os.path.exists(RESULTS_FILE):
-        with open(RESULTS_FILE, "w") as f:
+def write_header(seed: int):
+    path = results_file(seed)
+    if not os.path.exists(path):
+        with open(path, "w") as f:
             f.write("trial\tval_mae\tmemory_gb\tstatus\tdescription\n")
 
 
-def log_result(trial_num, val_mae, peak_vram_mb, status, desc):
+def log_result(seed: int, trial_num, val_mae, peak_vram_mb, status, desc):
     mem_gb = peak_vram_mb / 1024 if peak_vram_mb > 0 else 0.0
-    with open(RESULTS_FILE, "a") as f:
+    with open(results_file(seed), "a") as f:
         f.write(f"{trial_num}\t{val_mae:.4f}\t{mem_gb:.1f}\t{status}\t{desc}\n")
 
 
-def objective(trial: optuna.Trial) -> float:
-    hparams = suggest_hparams(trial)
-    desc = " ".join(f"{k}={v}" for k, v in sorted(hparams.items()))
+def make_objective(seed: int, use_wandb: bool):
+    """Returns an Optuna objective function.
 
-    print(f"\n{'='*70}")
-    print(f"Trial {trial.number}: {desc}")
-    print(f"{'='*70}")
+    Assumes wandb.init() has already been called in main (single run for all
+    trials). Tracks the running best val_mae in a closure so each log step
+    emits both the current trial value and the best-so-far line.
+    """
+    state = {"best_val_mae": float("inf")}
 
-    t0 = time.time()
-    try:
-        result = train_and_evaluate(hparams, seed=42)
-    except Exception as e:
-        print(f"Trial {trial.number} CRASHED: {e}")
-        log_result(trial.number, 0.0, 0.0, "crash", desc)
-        return float("inf")
+    def objective(trial: optuna.Trial) -> float:
+        hparams = suggest_hparams(trial)
+        desc = " ".join(f"{k}={v}" for k, v in sorted(hparams.items()))
 
-    elapsed = time.time() - t0
+        print(f"\n{'='*70}")
+        print(f"Trial {trial.number}: {desc}")
+        print(f"{'='*70}")
 
-    if result["status"] == "crash":
-        print(f"Trial {trial.number}: CRASH (NaN/exploding loss) after {result['num_steps']} steps")
-        log_result(trial.number, 0.0, 0.0, "crash", desc)
-        return float("inf")
+        t0 = time.time()
+        try:
+            result = train_and_evaluate(hparams, seed=seed)
+        except Exception as e:
+            print(f"Trial {trial.number} CRASHED: {e}")
+            log_result(seed, trial.number, 0.0, 0.0, "crash", desc)
+            if use_wandb:
+                import wandb
+                wandb.log({
+                    "trial_number": trial.number,
+                    "best_val_mae": state["best_val_mae"],
+                    **{f"hparam/{k}": v for k, v in hparams.items()},
+                })
+            return float("inf")
 
-    val_mae = result["val_mae"]
-    print(f"Trial {trial.number}: val_mae={val_mae:.4f} | "
-          f"vram={result['peak_vram_mb']:.0f}MB | "
-          f"steps={result['num_steps']} | "
-          f"time={elapsed:.0f}s")
+        elapsed = time.time() - t0
 
-    log_result(trial.number, val_mae, result["peak_vram_mb"], "ok", desc)
-    return val_mae
+        if result["status"] == "crash":
+            print(f"Trial {trial.number}: CRASH (NaN/exploding loss) after {result['num_steps']} steps")
+            log_result(seed, trial.number, 0.0, 0.0, "crash", desc)
+            if use_wandb:
+                import wandb
+                wandb.log({
+                    "trial_number": trial.number,
+                    "best_val_mae": state["best_val_mae"],
+                    "num_steps": result["num_steps"],
+                    **{f"hparam/{k}": v for k, v in hparams.items()},
+                })
+            return float("inf")
+
+        val_mae = result["val_mae"]
+        print(f"Trial {trial.number}: val_mae={val_mae:.4f} | "
+              f"vram={result['peak_vram_mb']:.0f}MB | "
+              f"steps={result['num_steps']} | "
+              f"time={elapsed:.0f}s")
+
+        log_result(seed, trial.number, val_mae, result["peak_vram_mb"], "ok", desc)
+
+        # Update running best before logging so best_val_mae reflects this trial
+        if val_mae < state["best_val_mae"]:
+            state["best_val_mae"] = val_mae
+
+        if use_wandb:
+            import wandb
+            wandb.log({
+                "trial_number": trial.number,
+                "val_mae": val_mae,
+                "best_val_mae": state["best_val_mae"],
+                "peak_vram_mb": result["peak_vram_mb"],
+                "num_steps": result["num_steps"],
+                "num_params_M": result["num_params_M"],
+                "elapsed_s": elapsed,
+                **{f"hparam/{k}": v for k, v in hparams.items()},
+            })
+
+        return val_mae
+
+    return objective
 
 
 # ---------------------------------------------------------------------------
@@ -246,12 +310,41 @@ if __name__ == "__main__":
     parser.add_argument("--n-trials", type=int, default=100,
                         help="Number of trials (default: 100)")
     parser.add_argument("--study-name", type=str, default="t5chem_hpo",
-                        help="Study name")
+                        help="Optuna study name")
     parser.add_argument("--seed", type=int, default=42,
-                        help="Sampler seed")
+                        help="Sampler + training seed")
+    # wandb
+    parser.add_argument("--wandb-project", type=str, default="autoresearch",
+                        help="W&B project name")
+    parser.add_argument("--wandb-group", type=str, default="optuna_t5chem_sm",
+                        help="W&B run group (default: optuna_t5chem_sm)")
+    parser.add_argument("--no-wandb", action="store_true",
+                        help="Disable W&B logging")
     args = parser.parse_args()
 
-    write_header()
+    write_header(args.seed)
+
+    # --- single wandb run for all trials ---
+    if not args.no_wandb:
+        import wandb
+        wandb.init(
+            project=args.wandb_project,
+            group=args.wandb_group,
+            name=f"{args.study_name}_seed{args.seed}",
+            config={
+                **ARCH_CONFIG,
+                "seed": args.seed,
+                "n_trials": args.n_trials,
+                "study_name": args.study_name,
+                "time_budget_s": TIME_BUDGET,
+                "sampler": "TPE",
+            },
+        )
+        # val_mae and best_val_mae share the same x-axis (trial_number)
+        wandb.define_metric("trial_number")
+        for metric in ("val_mae", "best_val_mae", "peak_vram_mb",
+                       "num_steps", "num_params_M", "elapsed_s", "hparam/*"):
+            wandb.define_metric(metric, step_metric="trial_number")
 
     sampler = optuna.samplers.TPESampler(seed=args.seed)
     study = optuna.create_study(
@@ -263,9 +356,11 @@ if __name__ == "__main__":
     est_hours = args.n_trials * 5.5 / 60
     print(f"Optuna HPO: {args.n_trials} trials x 5min = ~{est_hours:.1f} hours")
     print(f"Search: lr, wd, bs, dropout, head_dropout, warmup, schedule, head_type, beta1")
-    print(f"Results: {RESULTS_FILE}")
+    print(f"Results: {results_file(args.seed)}")
+    print(f"W&B: {'disabled' if args.no_wandb else f'project={args.wandb_project}, group={args.wandb_group}'}")
     print()
 
+    objective = make_objective(seed=args.seed, use_wandb=not args.no_wandb)
     study.optimize(objective, n_trials=args.n_trials)
 
     # Summary
@@ -277,3 +372,11 @@ if __name__ == "__main__":
     print(f"Best params:")
     for k, v in sorted(best.params.items()):
         print(f"  {k}: {v}")
+
+    if not args.no_wandb:
+        import wandb
+        wandb.run.summary["best_val_mae"] = best.value
+        wandb.run.summary["best_trial"] = best.number
+        for k, v in sorted(best.params.items()):
+            wandb.run.summary[f"best_hparam/{k}"] = v
+        wandb.finish()
