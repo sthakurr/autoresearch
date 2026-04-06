@@ -418,7 +418,8 @@ model = torch.compile(model, dynamic=False)
 decoder_input_ids = torch.full((DEVICE_BATCH_SIZE, 1), tokenizer.get_pad_token_id(),
                                 dtype=torch.long, device=device)
 
-train_loader = make_dataloader(tokenizer, DEVICE_BATCH_SIZE, MAX_SEQ_LEN, "train")
+TRAIN_SEQ_LEN = 300  # covers all real sequences (max=275); eval still uses MAX_SEQ_LEN=512
+train_loader = make_dataloader(tokenizer, DEVICE_BATCH_SIZE, TRAIN_SEQ_LEN, "train")
 input_ids, attn_mask, labels, epoch = next(train_loader)  # prefetch first batch
 
 print(f"Time budget: {TIME_BUDGET}s")
