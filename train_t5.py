@@ -337,9 +337,9 @@ class T5ForRegression(nn.Module):
         logits = self.regression_head(dec_out[:, -1, :])  # (B, 2)
 
         if labels is not None:
-            smooth = torch.stack([(100 - labels) / 100, labels / 100], dim=1)
-            log_probs = F.log_softmax(logits.float(), dim=-1)
-            loss = F.kl_div(log_probs, smooth.float(), reduction='batchmean')
+            # L1 loss directly on predicted yield probability (aligns with MAE eval)
+            pred = F.softmax(logits.float(), dim=-1)[:, 1]
+            loss = F.l1_loss(pred, (labels / 100).float())
             return loss, logits
 
         return logits
