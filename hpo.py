@@ -43,6 +43,12 @@ ARCH_CONFIG = dict(
     n_decoder_layers=4,
 )
 
+DATA_ERROR_MARKERS = (
+    "No data found for split",
+    "Data file not found",
+    "vocab.json",
+)
+
 
 def suggest_hparams(trial: optuna.Trial) -> dict:
     return dict(
@@ -56,6 +62,17 @@ def suggest_hparams(trial: optuna.Trial) -> dict:
         head_type=trial.suggest_categorical("head_type", ["linear", "mlp"]),
         beta1=trial.suggest_float("beta1", 0.85, 0.95, step=0.05),
     )
+
+
+def validate_data_pipeline() -> None:
+    """Fail fast if tokenizer/data are missing or dataloaders cannot yield batches."""
+    tokenizer = Tokenizer.from_directory()
+    for split in ("train", "val"):
+        loader = make_dataloader(tokenizer, B=2, T=MAX_SEQ_LEN, split=split)
+        try:
+            next(loader)
+        except Exception as e:
+            raise RuntimeError(f"{split} dataloader is not ready: {e}") from e
 
 
 # ---------------------------------------------------------------------------
@@ -245,6 +262,8 @@ def make_objective(seed: int, use_wandb: bool):
         try:
             result = train_and_evaluate(hparams, seed=seed)
         except Exception as e:
+            if any(marker in str(e) for marker in DATA_ERROR_MARKERS):
+                raise RuntimeError(f"Fatal data pipeline error: {e}") from e
             print(f"Trial {trial.number} CRASHED: {e}")
             log_result(seed, trial.number, 0.0, 0.0, "crash", desc)
             if use_wandb:
@@ -321,6 +340,8 @@ if __name__ == "__main__":
     parser.add_argument("--no-wandb", action="store_true",
                         help="Disable W&B logging")
     args = parser.parse_args()
+
+    validate_data_pipeline()
 
     write_header(args.seed)
 

@@ -57,10 +57,16 @@ fi
 # ---------------------------------------------------------------------------
 # Environment setup
 # ---------------------------------------------------------------------------
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# Under SLURM the script is copied to /var/spool/... before execution,
+# so BASH_SOURCE points to a transient path. Prefer submission directory.
+SCRIPT_DIR="${SLURM_SUBMIT_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)}"
 cd "$SCRIPT_DIR"
-
-mkdir -p logs
+HPO_SCRIPT="$SCRIPT_DIR/hpo.py"
+if [[ ! -f "$HPO_SCRIPT" ]]; then
+    echo "ERROR: Could not find hpo.py at $HPO_SCRIPT" >&2
+    echo "Submit from repo root or set --chdir to your repo path." >&2
+    exit 2
+fi
 
 echo "========================================================"
 echo "Job:        ${SLURM_JOB_ID:-local}"
@@ -71,10 +77,26 @@ echo "Trials:     $N_TRIALS"
 echo "W&B group:  $WANDB_GROUP"
 echo "========================================================"
 
+# SLURM jobs often do not load interactive shell rc files, so PATH may miss uv.
+UV_RUNNER=()
+if command -v uv >/dev/null 2>&1; then
+    UV_RUNNER=(uv run python)
+elif [[ -x "$HOME/.local/bin/uv" ]]; then
+    UV_RUNNER=("$HOME/.local/bin/uv" run python)
+    export PATH="$HOME/.local/bin:$PATH"
+elif [[ -x "$SCRIPT_DIR/.venv/bin/python" ]]; then
+    UV_RUNNER=("$SCRIPT_DIR/.venv/bin/python")
+else
+    echo "ERROR: Could not find 'uv' or a local .venv Python interpreter." >&2
+    echo "Install uv in your user account: curl -LsSf https://astral.sh/uv/install.sh | sh" >&2
+    echo "Or create project env first: cd $SCRIPT_DIR && uv sync" >&2
+    exit 127
+fi
+
 # ---------------------------------------------------------------------------
 # Run HPO
 # ---------------------------------------------------------------------------
-uv run hpo.py \
+"${UV_RUNNER[@]}" "$HPO_SCRIPT" \
     --seed "$SEED" \
     --n-trials "$N_TRIALS" \
     --study-name "t5chem_hpo" \
