@@ -36,6 +36,7 @@ class T5Config:
     n_encoder_layers: int = 4
     n_decoder_layers: int = 4
     dropout: float = 0.1
+    attn_dropout: float = 0.1  # separate attention weight dropout
     relative_attention_num_buckets: int = 32
     relative_attention_max_distance: int = 128
 
@@ -102,7 +103,7 @@ class T5Attention(nn.Module):
         self.k = nn.Linear(config.d_model, self.inner_dim, bias=False)
         self.v = nn.Linear(config.d_model, self.inner_dim, bias=False)
         self.o = nn.Linear(self.inner_dim, config.d_model, bias=False)
-        self.dropout = nn.Dropout(config.dropout)
+        self.dropout = nn.Dropout(config.attn_dropout)
 
     def forward(self, x, kv=None, mask=None, position_bias=None):
         B, T, _ = x.size()
@@ -358,7 +359,8 @@ N_HEAD = 8              # number of attention heads
 D_KV = 64              # per-head key/value dimension (inner_dim = n_head * d_kv = 512)
 N_ENCODER_LAYERS = 4    # encoder depth
 N_DECODER_LAYERS = 4    # decoder depth
-DROPOUT = 0.04          # dropout rate
+DROPOUT = 0.04          # residual/FFN dropout rate
+ATTN_DROPOUT = 0.0      # attention weight dropout (0=deterministic attention)
 
 # Optimization (T5Chem defaults: AdamW, lr=5e-4, no weight decay)
 DEVICE_BATCH_SIZE = 32   # per-device batch size
@@ -390,7 +392,7 @@ config = T5Config(
     vocab_size=vocab_size, d_model=D_MODEL, d_ff=D_FF,
     n_head=N_HEAD, d_kv=D_KV,
     n_encoder_layers=N_ENCODER_LAYERS, n_decoder_layers=N_DECODER_LAYERS,
-    dropout=DROPOUT,
+    dropout=DROPOUT, attn_dropout=ATTN_DROPOUT,
 )
 print(f"Model config: {asdict(config)}")
 

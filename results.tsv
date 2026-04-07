@@ -1,0 +1,107 @@
+commit	val_mae	memory_gb	status	description
+2929fbd	5.5799	3.0	keep	baseline: pretrained T5Chem, AdamW lr=5e-4, bs=32, dropout=0.1
+a9504da	6.8152	3.0	discard	lower LR 5e-4->1e-4, warmup 5%
+71de69e	5.4501	2.6	keep	dropout 0.1->0.0
+cacbb18	5.8601	9.6	discard	batch size 32->128 (too few steps)
+78ecdca	5.6226	2.6	discard	LR 1e-3, warmup 5%, warmdown 50%
+f790bd8	5.7222	2.4	discard	encoder-only mean pooling (skip decoder)
+670ca11	6.1450	2.6	discard	deeper regression head 256->256->2 GELU
+0069ecd	6.6096	2.1	discard	freeze encoder blocks
+4e5f249	5.8018	2.6	discard	Adam beta2 0.999->0.98
+f0dd97e	5.9688	2.6	discard	differential LR encoder 10x lower
+6c11c8d	5.8098	2.6	discard	MSE loss instead of KL divergence
+e7def7f	5.8077	2.6	discard	4 decoder steps instead of 1
+697b61d	6.3697	2.6	discard	cosine warmdown (had formula bug - inverted)
+79f0e75	5.8468	2.6	discard	regression head LR 2x vs pretrained body
+f064d02	6.1547	3.9	discard	6 enc+dec layers (4 pretrained + 2 random)
+26cd1ca	5.7538	2.6	discard	warmdown ratio 0.3->0.1
+a3beaf2	5.9802	2.6	discard	cosine warm restarts SGDR 5 cycles
+0cb5789	5.6816	2.6	discard	weight decay 0.01
+a480620	5.7752	2.6	discard	warmdown ratio 0.3->0.6
+b9265b6	5.8102	1.3	discard	train seq len 300 (87 epochs, overfits)
+bcc5381	5.4260	1.4	keep	T=300 + dropout=0.05 (faster steps + light reg)
+4dd3a56	5.7497	1.4	discard	T=300 dropout 0.05->0.03 (too low)
+7a4ff6f	5.3472	1.4	keep	T=300 dropout 0.08
+59e63d6	5.6221	1.4	discard	T=300 dropout 0.08->0.1 (too much)
+5e96321	5.6453	1.4	discard	T=300+d=0.08, warmdown 0.3->0.45
+9985ebd	5.6101	1.4	discard	T=300+d=0.08, LR 5e-4->7e-4
+d355542	5.5101	1.4	discard	T=300+d=0.08, LR 5e-4->3e-4
+5ad8cfb	5.5697	1.4	discard	T=300+d=0.08, warmup=0.05
+b03c5e0	5.6725	1.4	discard	T=300+d=0.08, weight_decay=0.001
+827621b	5.4572	1.4	discard	T=300+d=0.08, correct cosine warmdown
+d445c61	5.5787	1.4	discard	T=280+d=0.08 (94 epochs, too many)
+a603b91	5.5251	1.4	discard	T=280+d=0.09 (still worse than T=300)
+e449007	5.5225	1.4	discard	T=300+d=0.08, decoder layers 4->2
+6736c93	5.6146	1.5	discard	T=300+d=0.08, stochastic depth p=0.1
+c6dd022	5.6183	1.5	discard	T=300+d=0.08, EMA weights decay=0.9995
+skip	skip	skip	skip	grad_accum=2 (reverted, use bs=64 instead)
+c10798f	5.8952	2.7	discard	T=300+d=0.08, batch_size 32->64
+067e80c	5.7368	1.4	discard	T=300 dropout 0.07 (0.08 is sweet spot)
+fc49306	5.4729	1.3	discard	SDPA flash attention scale=1.0 (falls back)
+4bcebcc	5.8034	1.4	discard	T=300+d=0.08, 10% token masking augmentation
+5324e98	5.8330	1.7	discard	T=300+d=0.08, dropout annealing (loop overhead)
+cced1d3	5.4458	1.4	discard	T=300+d=0.08, FINAL_LR_FRAC=0.05
+5e97fbe	5.9112	1.4	discard	2-stage dropout 0.08->0.0 at warmdown start
+e01347e	6.2075	1.5	discard	SiLU activation instead of ReLU in FFN (pretrained weights incompatible)
+47f6f5e	5.7910	1.4	discard	label smoothing eps=0.05 on KL targets
+40f4ef8	5.9310	1.4	discard	Muon optimizer lr=0.002 (8453 steps, 36% slower than AdamW)
+a46775b	5.5448	1.4	discard	gradient centralization (zero-mean grads per output neuron)
+356db64	7.5393	1.7	discard	manifold mixup alpha=0.2 at encoder embedding level
+c5c8a4a	5.8471	1.4	discard	learnable regression query (replaces PAD token as decoder input)
+938d33b	5.4776	0.8	discard	batch size 32->16 (more steps but fewer total samples per budget)
+7d636b5	5.6976	1.2	discard	T=256+d=0.10 (~111 epochs, 37% more steps, 1% seqs truncated)
+c7dcb88	5.6414	1.3	discard	T=275+d=0.09 (~118 epochs, 18% more steps, covers all seqs)
+677549d	5.6398	1.4	discard	attention dropout=0.0, residual/ffn dropout=0.08 unchanged
+984346d	5.7321	1.4	discard	USPTO_500_MT pretrained weights (larger multitask corpus)
+680e99b	5.8662	1.5	discard	Lookahead k=5 alpha=0.5 wrapping AdamW
+363ef10	5.6445	1.4	discard	torch seed 42->1337
+5655bd0	5.7183	1.4	discard	torch seed 42->0
+649c545	5.8974	1.4	discard	dropout on decoder output before regression head
+3da3dd0	5.9313	1.4	discard	random.seed(42) for data ordering (bad ordering, reveals luck in 5.3472)
+c35f439	5.4582	1.5	discard	SWA every 100 steps during warmdown (39 snapshots)
+1899a41	5.6123	1.3	discard	random.seed(7) for data ordering
+484475d	5.2919	1.4	keep	L1 loss on prediction (direct MAE optimization vs KL divergence)
+6f4bcc6	5.0055	1.4	keep	L1 + dropout 0.08->0.05
+8e0d588	4.8400	1.4	keep	L1 + dropout 0.05->0.04   <-- CURRENT BEST
+8c45881	5.3214	1.4	discard	L1 dropout 0.04->0.02 (too low)
+65a92a0	5.0074	1.4	discard	L1+d=0.04 LR 5e-4->7e-4
+747b052	5.5394	1.4	discard	L1+d=0.04 LR 5e-4->3e-4
+eca2740	5.3469	1.4	discard	L1+d=0.04 warmdown 0.3->0.4
+22555d5	5.1850	1.4	discard	L1+d=0.04 warmdown 0.3->0.2
+847fea6	5.1163	1.3	discard	L1+d=0.04 weight_decay 0->0.001
+89540dd	5.1921	1.4	discard	Huber loss beta=0.05 (worse than pure L1)
+ce3996e	5.2200	1.4	discard	L1 + 0.1*KL mixed loss
+b5434ad	5.2991	1.4	discard	L1+d=0.04, T=300->275
+0a0295a	5.3122	1.4	discard	L1+d=0.04 cosine warmdown
+f15efeb	5.0973	1.5	discard	L1+d=0.04 + SWA every 50 steps
+b39faeb	5.2209	1.4	discard	L1 dropout 0.04->0.045
+3fad276	5.2209	1.4	discard	L1 dropout 0.04->0.035 (0.04 is sweet spot)
+6caa06c	5.1895	1.4	discard	L1+d=0.04 Adam beta1 0.9->0.95
+ea2285f	5.1206	1.4	discard	L1+d=0.04 max_grad_norm 1.0->0.5
+5b1ba22	5.1830	1.4	discard	L1+d=0.04 add masked enc_mean to dec_repr (decoder already captures this)
+0000102	5.5459	1.4	discard	L1+d=0.04 encoder_dropout=0.0 (encoder dropout important for generalization)
+616e9ab	5.2307	1.2	discard	L1+d=0.04 T=300->256 (more steps but 1% seqs truncated, worse)
+473a8ee	9.1377	1.4	discard	BOS token as decoder input instead of PAD (PAD is correct for T5Chem regression)
+97205fe	5.3176	1.4	discard	L1+d=0.04 label noise sigma=2.0% yield (too noisy)
+a6906f5	5.1697	1.4	discard	L1+d=0.04 decoder block dropout=0.0, encoder keeps 0.04
+c82161b	5.3081	1.4	discard	L1+d=0.04 Adam eps 1e-8->1e-6
+e97dc1c	5.1291	1.4	discard	NAdam optimizer (worse than AdamW)
+e6b19c2	5.3109	1.4	discard	GELU activation in FFN (ReLU pretrained weights incompatible)
+6269a30	5.4334	1.4	discard	L1+d=0.04 2 decoder steps (more cross-attention hurts)
+d890112	5.0621	1.4	discard	L1+d=0.04 weight_decay 0->1e-5 (tiny WD doesn't help)
+14aa706	5.2434	1.4	discard	2-run continuation run1: standard config (checkpoint saved)
+14aa706	5.3378	1.4	discard	2-run continuation run2: from checkpoint + linear decay (worse, diff data order)
+026a5cc	5.3432	1.3	discard	L1+d=0.04 freeze encoder layers 0-1
+70002d0	5.1376	1.4	discard	L1+d=0.04 embedding dropout=0 (keep block dropout 0.04)
+d88f6fb	5.3419	1.4	discard	L1+d=0.04 regression head bias=True
+47e60d2	5.5696	1.4	discard	L1+d=0.04 FINAL_LR_FRAC 0->0.02 (non-zero floor hurts)
+554b25e	5.4275	1.4	discard	L1+d=0.04 warmdown_ratio 0.30->0.25
+a3d69ef	5.1687	1.5	discard	model soup 50-50 blend warmdown-start + final weights
+f354e20	5.0495	1.4	discard	reactant swap augmentation 50% prob during training
+66f8656	5.1264	1.4	discard	regression head 256->64->2 with ReLU hidden layer
+03c195c	5.3488	2.7	discard	R-drop KL consistency weight=0.1 (2x forward, 6943 steps)
+3813abe	5.4551	1.4	discard	L1+d=0.04 Adam beta1 0.9->0.85
+3183d4e	5.2109	1.4	discard	yield-stratified batching 4 quartiles x8 per batch
+88311ef	5.4300	1.4	discard	relative_attention_max_distance 128->300 (bucket remapping hurts)
+7db3f52	5.1398	1.4	discard	L1 + pairwise ranking hinge loss weight=0.1
+27c4872	5.0853	1.4	discard	quadratic warmdown (cooldown^2 vs linear)
