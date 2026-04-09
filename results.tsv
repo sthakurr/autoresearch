@@ -62,7 +62,7 @@ c35f439	5.4582	1.5	discard	SWA every 100 steps during warmdown (39 snapshots)
 1899a41	5.6123	1.3	discard	random.seed(7) for data ordering
 484475d	5.2919	1.4	keep	L1 loss on prediction (direct MAE optimization vs KL divergence)
 6f4bcc6	5.0055	1.4	keep	L1 + dropout 0.08->0.05
-8e0d588	4.8400	1.4	keep	L1 + dropout 0.05->0.04   <-- CURRENT BEST
+8e0d588	4.8400	1.4	keep	L1 + dropout 0.05->0.04
 8c45881	5.3214	1.4	discard	L1 dropout 0.04->0.02 (too low)
 65a92a0	5.0074	1.4	discard	L1+d=0.04 LR 5e-4->7e-4
 747b052	5.5394	1.4	discard	L1+d=0.04 LR 5e-4->3e-4
@@ -105,3 +105,10 @@ f354e20	5.0495	1.4	discard	reactant swap augmentation 50% prob during training
 88311ef	5.4300	1.4	discard	relative_attention_max_distance 128->300 (bucket remapping hurts)
 7db3f52	5.1398	1.4	discard	L1 + pairwise ranking hinge loss weight=0.1
 27c4872	5.0853	1.4	discard	quadratic warmdown (cooldown^2 vs linear)
+ceaa811	4.8170	1.4	keep	attn_dropout=0.0 residual_dropout=0.04 (split attention/residual dropout)
+8517ae4	5.3849	1.4	discard	attn_dropout=0.0 residual=0.05 (too high)
+80c6f06	5.0277	1.4	discard	attn_dropout=0.0 residual=0.03 (too low, 0.04 optimal)
+ef736ba	5.1030	1.4	discard	attn_dropout=0.0 warmdown_ratio 0.30->0.35
+verify1	5.4440	1.4	discard	ceaa811 re-run #1 (data order variance: 4.8170 was lucky)
+verify2	5.5061	1.4	discard	ceaa811 re-run #2
+verify3	5.2924	1.4	discard	ceaa811 re-run #3 (true avg ~5.4)

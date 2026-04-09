@@ -372,6 +372,11 @@ WARMUP_RATIO = 0.0       # fraction of time budget for LR warmup
 WARMDOWN_RATIO = 0.3     # fraction of time budget for LR warmdown
 FINAL_LR_FRAC = 0.0      # final LR as fraction of initial
 
+# Analysis logging
+LOG_EPOCH_METRICS = True
+EPOCH_METRICS_PATH = "epoch_metrics.tsv"
+EPOCH_PLOT_PATH = "epoch_metrics.png"
+
 # ---------------------------------------------------------------------------
 # Setup: tokenizer, model, optimizer, dataloader
 # ---------------------------------------------------------------------------
@@ -426,6 +431,58 @@ input_ids, attn_mask, labels, epoch = next(train_loader)  # prefetch first batch
 
 print(f"Time budget: {TIME_BUDGET}s")
 
+epoch_metrics = []
+
+def flush_epoch_metrics(path, rows):
+    with open(path, "w") as f:
+        f.write("epoch\tavg_train_loss\tval_mae\tstep\telapsed_s\n")
+        for row in rows:
+            f.write(
+                f"{row['epoch']}\t{row['avg_train_loss']:.6f}\t{row['val_mae']:.6f}\t"
+                f"{row['step']}\t{row['elapsed_s']:.2f}\n"
+            )
+
+
+def write_epoch_plot(path, rows):
+    """Write a dual-axis epoch curve plot (train loss + val MAE)."""
+    if not rows:
+        return
+    try:
+        import matplotlib
+        matplotlib.use("Agg")
+        import matplotlib.pyplot as plt
+    except Exception as e:
+        print(f"Plot skipped (matplotlib unavailable): {e}")
+        return
+
+    epochs = [r["epoch"] for r in rows]
+    train_loss = [r["avg_train_loss"] for r in rows]
+    val_mae = [r["val_mae"] for r in rows]
+
+    fig, ax1 = plt.subplots(figsize=(8, 4.8))
+    ax1.plot(epochs, train_loss, color="tab:blue", marker="o", linewidth=1.5, label="Avg train loss")
+    ax1.set_xlabel("Epoch")
+    ax1.set_ylabel("Avg train loss", color="tab:blue")
+    ax1.tick_params(axis="y", labelcolor="tab:blue")
+    ax1.grid(True, alpha=0.25)
+
+    ax2 = ax1.twinx()
+    ax2.plot(epochs, val_mae, color="tab:red", marker="s", linewidth=1.5, label="Val MAE")
+    ax2.set_ylabel("Validation MAE", color="tab:red")
+    ax2.tick_params(axis="y", labelcolor="tab:red")
+
+    lines1, labels1 = ax1.get_legend_handles_labels()
+    lines2, labels2 = ax2.get_legend_handles_labels()
+    ax1.legend(lines1 + lines2, labels1 + labels2, loc="best")
+
+    plt.title("Per-epoch training curve")
+    plt.tight_layout()
+    plt.savefig(path, dpi=160)
+    plt.close(fig)
+
+if LOG_EPOCH_METRICS:
+    print(f"Per-epoch metrics: {EPOCH_METRICS_PATH}")
+
 # Schedules (all based on progress = training_time / TIME_BUDGET)
 
 def get_lr_multiplier(progress):
@@ -445,8 +502,11 @@ t_start_training = time.time()
 smooth_train_loss = 0
 total_training_time = 0
 step = 0
+epoch_train_loss_sum = 0.0
+epoch_train_steps = 0
 
 while True:
+    batch_epoch = epoch
     torch.cuda.synchronize()
     t0 = time.time()
 
@@ -466,9 +526,39 @@ while True:
     model.zero_grad(set_to_none=True)
 
     train_loss_f = loss.detach().item()
+    epoch_train_loss_sum += train_loss_f
+    epoch_train_steps += 1
 
     # Prefetch next batch
-    input_ids, attn_mask, labels, epoch = next(train_loader)
+    input_ids, attn_mask, labels, next_epoch = next(train_loader)
+
+    # End-of-epoch eval curve: avg train loss vs validation MAE
+    if LOG_EPOCH_METRICS and next_epoch != batch_epoch:
+        avg_epoch_train_loss = epoch_train_loss_sum / max(1, epoch_train_steps)
+        model.eval()
+        with autocast_ctx:
+            epoch_val_mae = evaluate_mae(model, tokenizer, DEVICE_BATCH_SIZE)
+        model.train()
+
+        row = {
+            "epoch": batch_epoch,
+            "avg_train_loss": avg_epoch_train_loss,
+            "val_mae": epoch_val_mae,
+            "step": step,
+            "elapsed_s": time.time() - t_start_training,
+        }
+        epoch_metrics.append(row)
+        flush_epoch_metrics(EPOCH_METRICS_PATH, epoch_metrics)
+        write_epoch_plot(EPOCH_PLOT_PATH, epoch_metrics)
+        print(
+            f"\n[epoch {batch_epoch:03d}] train_loss={avg_epoch_train_loss:.6f} "
+            f"| val_mae={epoch_val_mae:.4f}"
+        )
+
+        epoch_train_loss_sum = 0.0
+        epoch_train_steps = 0
+
+    epoch = next_epoch
 
     # Fast fail: abort if loss is exploding or NaN
     if math.isnan(train_loss_f) or train_loss_f > 100:
@@ -528,3 +618,6 @@ print(f"total_seconds:    {t_end - t_start:.1f}")
 print(f"peak_vram_mb:     {peak_vram_mb:.1f}")
 print(f"num_steps:        {step}")
 print(f"num_params_M:     {num_params / 1e6:.1f}")
+if LOG_EPOCH_METRICS:
+    print(f"epoch_metrics:    {EPOCH_METRICS_PATH}")
+    print(f"epoch_plot:       {EPOCH_PLOT_PATH}")
