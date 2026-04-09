@@ -25,7 +25,7 @@ import torch
 # ---------------------------------------------------------------------------
 
 MAX_SEQ_LEN = 512        # max encoder input length (Yield: prefix + SMILES)
-TIME_BUDGET = 300         # training time budget in seconds (5 minutes)
+TIME_BUDGET = 60          # training time budget in seconds (1 minute)
 EVAL_BATCHES = 50         # number of val batches for MAE evaluation
 
 # ---------------------------------------------------------------------------
