@@ -358,7 +358,7 @@ N_HEAD = 8              # number of attention heads
 D_KV = 64              # per-head key/value dimension (inner_dim = n_head * d_kv = 512)
 N_ENCODER_LAYERS = 4    # encoder depth
 N_DECODER_LAYERS = 4    # decoder depth
-DROPOUT = 0.1           # dropout rate
+DROPOUT = 0.0           # dropout rate
 
 # Optimization (T5Chem defaults: AdamW, lr=5e-4, no weight decay)
 DEVICE_BATCH_SIZE = 32   # per-device batch size
